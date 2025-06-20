@@ -1,0 +1,22 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model tbuser {
+  id            Int               @id @default(autoincrement())
+  user_name     String            @db.VarChar(100)
+  email         String            @unique(map: "email") @db.VarChar(250)
+  user_password String            @db.VarChar(250)
+  user_role     tbuser_user_role? @default(cliente)
+  createdAt     DateTime?         @default(now()) @db.DateTime(0)
+}
+
+enum tbuser_user_role {
+  cliente
+  admin
+}
