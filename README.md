@@ -33,6 +33,7 @@ API RESTFull para cadastro e gestão de usuários, autenticação e controle de 
     ├── server.js (Arquivo principal onde está rodando o servidor).
 
 - prisma/
+  
     ├── schema.prisma
 
 # ©2025 - Todos Os Direitos Reservados.
