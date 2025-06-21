@@ -1,7 +1,9 @@
 import userRouter from './user.routes.js';
+import adminRoutes from './admin.routes.js';
 
 const routes = [
-    userRouter
+    userRouter,
+    adminRoutes
 ];
 
 export default routes;

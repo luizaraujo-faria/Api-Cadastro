@@ -1,3 +1,9 @@
 import { UserController } from "./userController.js";
+import { AdminController } from "./adminController.js";
 
-export const userController = new UserController();
+const controllers = {
+    userController: new UserController(),
+    adminController: new AdminController(),
+};
+
+export default controllers;
