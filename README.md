@@ -62,9 +62,13 @@ API RESTFull para gestão de usuários baseada em arquitetura em camadas. Foco n
 - npm install
 
 - criar um .env com:
+  
         DATABASE_URL - < mysql://usuario:senha@localhost:3306/nome_do_banco >
+  
         JWT_SECRET - < chave secreta >
+  
         JWT_EXPIRES_IN - < tempo de duração >
+  
         PORT - < porta do servidor >
 
 - npm run dev
