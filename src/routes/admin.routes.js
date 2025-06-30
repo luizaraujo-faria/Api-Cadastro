@@ -10,7 +10,7 @@ const { adminController } = controllers;
 //Rotas protegidas para administradores
 router.post('/adminregister', authenticate, checkUserStatus, isAdmin, adminController.adminRegister);
 router.get('/getall', authenticate, checkUserStatus, isAdmin, adminController.getAllUsers);
-router.get('/getbyid', authenticate, checkUserStatus, isAdmin, adminController.getById);
+router.get('/getbyid', authenticate, checkUserStatus, isAdmin, adminController.getUserById);
 router.patch('/adminupdate', authenticate, checkUserStatus, isAdmin, adminController.adminUpdateUser);
 router.delete('/admindelete', authenticate, checkUserStatus, isAdmin, adminController.adminDeleteUser);
 
