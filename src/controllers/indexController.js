@@ -1,5 +1,5 @@
-import { UserController } from "./userController.js";
-import { AdminController } from "./adminController.js";
+import { UserController } from './userController.js';
+import { AdminController } from './adminController.js';
 
 const controllers = {
     userController: new UserController(),
