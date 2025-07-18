@@ -59,7 +59,7 @@ export class AdminService{
         }
     }
 
-    static async getUserById(userId){
+    static async getUserByEmail(userId){
 
         validateUserId(userId);
 
