@@ -24,7 +24,7 @@ export const validateUserId = (id, tokenId) => {
 
     if(tokenId){
         if(id !== tokenId){
-            throw new AppError('Acesso negado!', 403);
+            throw new AppError('Acesso negado! ID não corresponde ao Token!', 403);
         }
     }
 }

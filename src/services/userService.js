@@ -3,7 +3,8 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { AppError } from '../utils/appError.js';
 import { validateEmail, validatePassword, validateUserId } from '../utils/validators.js';
-import { checkExistingUser } from '../utils/dbHelpers.js';
+import { checkExistingUser, checkRegisteredUser } from '../utils/dbHelpers.js';
+import { UserHistoryService } from './userHistoryService.js';
 
 export class UserService{
 
@@ -17,10 +18,7 @@ export class UserService{
         validatePassword(password);
 
         try{
-            const registeredUser = await prisma.tbuser.findUnique({ where: { email: email } });
-            if(registeredUser){
-                throw new AppError('Email já cadastrado!', 400);
-            }
+            await checkRegisteredUser(email);
 
             const hashPassword = await bcrypt.hash(password, 10);
 
@@ -28,11 +26,30 @@ export class UserService{
                 data: { user_name: name, email, user_password: hashPassword } 
             });
 
+            await UserHistoryService.createUserHistory({
+                userId: newUser.id,
+                action: 'create_account',
+                status: 'sucesso',
+                details: `Usuário ${email} se cadastrou.`
+            });
+
             return newUser;    
         }
         catch(err){
+            try{
+                await UserHistoryService.createUserHistory({
+                    userId: null,
+                    action: 'create_account',
+                    status: 'falha',
+                    details: `Usuário ${email} tentou se cadastrar. Erro: ${err.message}`
+                });
+            }
+            catch(logError){
+                console.error('Erro ao registrar falha de cadastro', logError);
+            }
+
             console.error('Falha ao cadastrar!', err);
-            throw new Error(`Erro no serviço: ${err.message}`);
+            throw err;
         }
     }
 
@@ -42,11 +59,10 @@ export class UserService{
             throw new AppError('Todos os campos devem ser informados!', 400);
         }
 
+        let existingUser;
+
         try{
-            const existingUser = await prisma.tbuser.findUnique({ where: { email } });
-            if(!existingUser){
-                throw new AppError('Usuário não encontrado!', 404);
-            }
+            existingUser = await checkExistingUser(email);
 
             const isMatch = await bcrypt.compare(password, existingUser.user_password);
             if(!isMatch){
@@ -64,11 +80,30 @@ export class UserService{
                 { expiresIn: process.env.JWT_EXPIRES_IN }
             )
 
+            await UserHistoryService.createUserHistory({
+                userId: existingUser.id,
+                action: 'login',
+                status: 'sucesso',
+                details: `Usuário ${email} realizou login.`
+            });
+
             return token;
         }
         catch(err){
+            try{
+                UserHistoryService.createUserHistory({
+                    userId: existingUser?.id || null,
+                    action: 'login',
+                    status: 'falha',
+                    details: `Usuário: ${email}. Erro: ${err.message}`
+                });
+            }
+            catch(logError){
+                console.error('Erro ao registrar falha de login!', logError);
+            }
+
             console.error('Falha ao realizar login!', err);
-            throw new Error(`Falha no serviço: ${err.message}`);
+            throw err;
         }
     }
 
@@ -100,11 +135,30 @@ export class UserService{
                 })
             }
 
+            await UserHistoryService.createUserHistory({
+                userId: autenticatedId,
+                action: 'search_account',
+                status: 'sucesso',
+                details: `Usuário ${user.email} buscou seus dados.`
+            });
+
             return formattedUser;
         }
         catch(err){
+            try{
+                await UserHistoryService.createUserHistory({
+                    userId: autenticatedId,
+                    action: 'search_account',
+                    status: 'falha',
+                    details: `Usuário ${autenticatedId.email} tentou buscar seus dados. Erro: ${err.message}`
+                });
+            }
+            catch(logError){
+                console.error('Erro ao registrar falha de busca de dados!', logError);
+            }
+
             console.error('Falha ao buscar dados de usuário!', err);
-            throw new Error(`Falha no serviço: ${err.message}`);
+            throw err;
         }
     }
 
@@ -113,31 +167,56 @@ export class UserService{
         validateUserId(userId, autenticatedId);
 
         try{
-            checkExistingUser(autenticatedId);
+            await checkExistingUser(undefined, autenticatedId);
 
-            const data = {};
+            const updatedFields = {};
+            const changes = [];
 
             if(name){
-                data.user_name = name;
+                updatedFields.user_name = name;
+                changes.push('Nome');
             }
 
             if(email){
                 validateEmail(email);
-                data.email = email; 
+                await checkRegisteredUser(email);
+                updatedFields.email = email; 
+                changes.push('Email');
             }
 
             if(password){
                 validatePassword(password);
                 const hashPassword = await bcrypt.hash(password, 10);
-                data.user_password = hashPassword;
+                updatedFields.user_password = hashPassword;
+                changes.push('Senha');
             }
 
-            const updatedUser = await prisma.tbuser.update({ where: { id: autenticatedId }, data, });
+            const updatedUser = await prisma.tbuser.update({ where: { id: autenticatedId }, data: updatedFields });
+            
+            await UserHistoryService.createUserHistory({
+                userId: autenticatedId,
+                action: 'update_account',
+                status: 'sucesso',
+                details: `Usuário ${email} atualizou seu(s): ${changes.join(', ')}.`
+            });
+
             return updatedUser;
         }
         catch(err){
+            try{
+                await UserHistoryService.createUserHistory({
+                    userId: autenticatedId || null,
+                    action: 'update_account',
+                    status: 'falha',
+                    details: `Usuário ${email} tentou atualizar seu(s) dado(s). Erro: ${err.message}`
+                });
+            }
+            catch(logError){
+                console.error('Erro ao registrar falha de atualização de dados!', logError);
+            }
+
             console.error('Falha ao atualizar dados!', err);
-            throw new Error(`falha no serviço: ${err.message}`);
+            throw err;
         }
     }
 
@@ -146,14 +225,34 @@ export class UserService{
         validateUserId(userId, autenticatedId);
 
         try{
-            checkExistingUser(autenticatedId);
+            await checkExistingUser(undefined, autenticatedId);
 
             const deletedUser = await prisma.tbuser.delete({ where: { id: autenticatedId } });
+            
+            await UserHistoryService.createUserHistory({
+                userId: autenticatedId,
+                action: 'delete_account',
+                status: 'sucesso',
+                details: `Usuário ${autenticatedId.email} deletou seus dados.`
+            });
+
             return deletedUser;
         }
         catch(err){
+            try{
+                await UserHistoryService.createUserHistory({
+                    userId: autenticatedId || null,
+                    action: 'delete_account',
+                    status: 'falha',
+                    details: `Usuário ${autenticatedId} tentou deletar seus dados. Erro: ${err.message}`
+                });
+            }
+            catch(logError){
+                console.error('Erro ao registrar falha de exclusão de usuário!', logError);
+            }
+            
             console.error('Falha ao deletar usuário!', err);
-            throw new Error(`Falha no serviço: ${err.message}`);
+            throw err;
         }
     }
 }

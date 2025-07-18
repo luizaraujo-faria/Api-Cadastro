@@ -17,6 +17,17 @@ model tbuser {
   createdAt     DateTime?           @default(now()) @db.DateTime(0)
 }
 
+model tbuserhistory {
+  id            Int                          @id @default(autoincrement())
+  user_id       Int?
+  user_action   tbuserhistory_user_action
+  details       String?                      @db.VarChar(250)
+  action_status tbuserhistory_action_status? @default(sucesso)
+  createdAt     DateTime?                    @default(now()) @db.DateTime(0)
+
+  @@index([user_id], map: "user_id")
+}
+
 enum tbuser_user_role {
   cliente
   admin
@@ -26,4 +37,18 @@ enum tbuser_user_status {
   ativo
   inativo
   banned
+}
+
+enum tbuserhistory_action_status {
+  sucesso
+  falha
+}
+
+enum tbuserhistory_user_action {
+  login
+  logout
+  create_account
+  update_account
+  delete_account
+  search_account
 }
