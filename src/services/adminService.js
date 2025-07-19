@@ -2,7 +2,7 @@ import prisma from '../lib/prismaClient.js';
 import bcrypt from 'bcryptjs';
 import { AppError } from '../utils/appError.js';
 import { validateEmail, validatePassword, validateUserId } from '../utils/validators.js';
-import { checkExistingUser } from '../utils/dbHelpers.js';
+import { checkExistingUser, checkRegisteredUser } from '../utils/dbHelpers.js';
 
 export class AdminService{
 
@@ -16,10 +16,7 @@ export class AdminService{
         validatePassword(password);
 
         try{
-            const registeredUser = await prisma.tbuser.findUnique({ where: { email }});
-            if(registeredUser){
-                throw new AppError('Email já cadastrado!', 400);
-            }
+            await checkRegisteredUser(email);
 
             const hashPassword = await bcrypt.hash(password, 10);
 
@@ -28,7 +25,7 @@ export class AdminService{
         }
         catch(err){
             console.error('Falha ao cadastrar administrador!', err);
-            throw new Error(`Falha no serviço: ${err.message}`);
+            throw err;
         }
     }
 
@@ -36,6 +33,9 @@ export class AdminService{
 
         try{
             const users = await prisma.tbuser.findMany();
+
+            console.log('usuários no sistema:', users);
+
             const sanitizedUsers = users.map(({ user_password: _, ...user}) => {
                 return {
                     ...user,
@@ -47,6 +47,7 @@ export class AdminService{
                 }
             });
 
+            console.log('Usuários sanitizados:', sanitizedUsers)
             if(sanitizedUsers.length === 0){
                 throw new AppError('Nenhum usuário encontrado!', 404);
             }
@@ -55,16 +56,16 @@ export class AdminService{
         }
         catch(err){
             console.error('Falha ao carregar usuários!', err);
-            throw new Error(`Falha no serviço: ${err.message}`);
+            throw err;
         }
     }
 
-    static async getUserByEmail(userId){
+    static async getUserById(userId){
 
         validateUserId(userId);
 
         try{
-            const existingUser = checkExistingUser(userId);
+            const existingUser = await checkExistingUser(undefined, userId);
 
             const { user_password: _, ...rest } = existingUser;
 
@@ -81,7 +82,7 @@ export class AdminService{
         }
         catch(err){
             console.error('Falha ao buscar usuário!', err);
-            throw new Error(`Falha no serviço: ${err.message}`);
+            throw err;
         }
     }
 
@@ -94,7 +95,7 @@ export class AdminService{
         }
 
         try{
-            checkExistingUser(userId);
+            await checkExistingUser(userId);
 
             const data = {};
             
@@ -141,7 +142,7 @@ export class AdminService{
     static async adminDeleteUser(userId){
 
         try{
-            checkExistingUser(userId);
+            await checkExistingUser(userId);
 
             const deletedUser = await prisma.tbuser.delete({ where: { id: userId } });
             return deletedUser;
