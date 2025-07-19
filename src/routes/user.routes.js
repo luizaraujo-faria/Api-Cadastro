@@ -7,13 +7,13 @@ const router = express.Router();
 const { userController } = controllers;
 
 //Rotas públicas
-router.post('/register', userController.userRegister);
+router.post('/', userController.userRegister);
 router.post('/login', userController.userLogin);
 
 //Rotas privadas
-router.get('/get/:id', authenticate, checkUserStatus, userController.getUser);
-router.patch('/update/:id', authenticate, checkUserStatus, userController.updateUser);
-router.delete('/delete/:id', authenticate, checkUserStatus, userController.deleteUser);
+router.get('/:id', authenticate, checkUserStatus, userController.getUser);
+router.patch('/:id', authenticate, checkUserStatus, userController.updateUser);
+router.delete('/:id', authenticate, checkUserStatus, userController.deleteUser);
 
 //Exportanto prefixo e suas rotas
 export default {

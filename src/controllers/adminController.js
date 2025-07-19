@@ -18,7 +18,7 @@ export class AdminController{
 
         try{
             const users = await AdminService.getAllUsers();
-            return users;
+            return res.status(200).json({ message: 'Usuários no sitemas:', users });
         }
         catch(err){
             console.error('Falha ao carregar usuários!', err);
@@ -29,7 +29,7 @@ export class AdminController{
     async getUserById(req, res){
 
         try{
-            const user = await AdminService.getById(parseInt(req.body.id));
+            const user = await AdminService.getUserById(parseInt(req.body.id));
             return res.status(200).json({ message: 'Usuário carregado com sucesso!', user });
         }
         catch(err){
