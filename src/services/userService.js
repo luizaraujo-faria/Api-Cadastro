@@ -5,6 +5,7 @@ import { AppError } from '../utils/appError.js';
 import { validateEmail, validatePassword, validateUserId } from '../utils/validators.js';
 import { checkExistingUser, checkRegisteredUser } from '../utils/dbHelpers.js';
 import { UserHistoryService } from './userHistoryService.js';
+import { ActionStatus, UserAction } from '../constants/userHistory.js';
 
 export class UserService{
 
@@ -28,8 +29,8 @@ export class UserService{
 
             await UserHistoryService.createUserHistory({
                 userId: newUser.id,
-                action: 'create_account',
-                status: 'sucesso',
+                action: UserAction.CREATE,
+                status: ActionStatus.SUCCESS,
                 details: `Usuário ${email} se cadastrou.`
             });
 
@@ -39,8 +40,8 @@ export class UserService{
             try{
                 await UserHistoryService.createUserHistory({
                     userId: null,
-                    action: 'create_account',
-                    status: 'falha',
+                    action: UserAction.CREATE,
+                    status: ActionStatus.FAILED,
                     details: `Usuário ${email} tentou se cadastrar. Erro: ${err.message}`
                 });
             }
@@ -82,8 +83,8 @@ export class UserService{
 
             await UserHistoryService.createUserHistory({
                 userId: existingUser.id,
-                action: 'login',
-                status: 'sucesso',
+                action: UserAction.LOGIN,
+                status: ActionStatus.SUCCESS,
                 details: `Usuário ${email} realizou login.`
             });
 
@@ -93,8 +94,8 @@ export class UserService{
             try{
                 UserHistoryService.createUserHistory({
                     userId: existingUser?.id || null,
-                    action: 'login',
-                    status: 'falha',
+                    action: UserAction.LOGIN,
+                    status: ActionStatus.FAILED,
                     details: `Usuário: ${email}. Erro: ${err.message}`
                 });
             }
@@ -137,8 +138,8 @@ export class UserService{
 
             await UserHistoryService.createUserHistory({
                 userId: autenticatedId,
-                action: 'search_account',
-                status: 'sucesso',
+                action: UserAction.SEARCH,
+                status: ActionStatus.SUCCESS,
                 details: `Usuário ${user.email} buscou seus dados.`
             });
 
@@ -148,8 +149,8 @@ export class UserService{
             try{
                 await UserHistoryService.createUserHistory({
                     userId: autenticatedId,
-                    action: 'search_account',
-                    status: 'falha',
+                    action: UserAction.SEARCH,
+                    status: ActionStatus.FAILED,
                     details: `Usuário ${autenticatedId.email} tentou buscar seus dados. Erro: ${err.message}`
                 });
             }
@@ -195,8 +196,8 @@ export class UserService{
             
             await UserHistoryService.createUserHistory({
                 userId: autenticatedId,
-                action: 'update_account',
-                status: 'sucesso',
+                action: UserAction.UPDATE,
+                status: ActionStatus.SUCCESS,
                 details: `Usuário ${email} atualizou seu(s): ${changes.join(', ')}.`
             });
 
@@ -206,8 +207,8 @@ export class UserService{
             try{
                 await UserHistoryService.createUserHistory({
                     userId: autenticatedId || null,
-                    action: 'update_account',
-                    status: 'falha',
+                    action: UserAction.UPDATE,
+                    status: ActionStatus.FAILED,
                     details: `Usuário ${email} tentou atualizar seu(s) dado(s). Erro: ${err.message}`
                 });
             }
@@ -231,8 +232,8 @@ export class UserService{
             
             await UserHistoryService.createUserHistory({
                 userId: autenticatedId,
-                action: 'delete_account',
-                status: 'sucesso',
+                action: UserAction.DELETE,
+                status: ActionStatus.SUCCESS,
                 details: `Usuário ${autenticatedId.email} deletou seus dados.`
             });
 
@@ -242,8 +243,8 @@ export class UserService{
             try{
                 await UserHistoryService.createUserHistory({
                     userId: autenticatedId || null,
-                    action: 'delete_account',
-                    status: 'falha',
+                    action: UserAction.DELETE,
+                    status: ActionStatus.FAILED,
                     details: `Usuário ${autenticatedId} tentou deletar seus dados. Erro: ${err.message}`
                 });
             }
