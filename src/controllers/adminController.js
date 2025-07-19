@@ -5,7 +5,7 @@ export class AdminController{
     async adminRegister(req, res){
 
         try{
-            await AdminService.adminRegister(req.body);
+            await AdminService.adminRegister(req.user, req.body);
             return res.status(201).json({ message: 'Usuário cadastrado com sucesso!' });
         }
         catch(err){
@@ -17,7 +17,7 @@ export class AdminController{
     async getAllUsers(req, res){
 
         try{
-            const users = await AdminService.getAllUsers();
+            const users = await AdminService.getAllUsers(req.user);
             return res.status(200).json({ message: 'Usuários no sitemas:', users });
         }
         catch(err){
@@ -26,10 +26,10 @@ export class AdminController{
         }
     }
 
-    async getUserById(req, res){
+    async getUserByEmail(req, res){
 
         try{
-            const user = await AdminService.getUserById(parseInt(req.body.id));
+            const user = await AdminService.getUserByEmail(req.user, req.body.email);
             return res.status(200).json({ message: 'Usuário carregado com sucesso!', user });
         }
         catch(err){
@@ -41,7 +41,7 @@ export class AdminController{
     async adminUpdateUser(req, res){
 
         try{
-            await AdminService.adminUpdateUser(parseInt(req.body.id), req.body);
+            await AdminService.adminUpdateUser(req.user, req.body.userEmail, req.body);
             return res.status(200).json({ message: 'Dados atualizados com sucesso!' });
         }
         catch(err){
@@ -53,7 +53,7 @@ export class AdminController{
     async adminDeleteUser(req, res){
 
         try{
-            await AdminService.adminDeleteUser(parseInt(req.body.id));
+            await AdminService.adminDeleteUser(req.body.email);
             return res.status(204).json({ message: 'Usuário excluído com sucesso!' });
         }
         catch(err){

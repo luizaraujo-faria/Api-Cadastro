@@ -1,12 +1,14 @@
 import prisma from '../lib/prismaClient.js';
 import bcrypt from 'bcryptjs';
 import { AppError } from '../utils/appError.js';
-import { validateEmail, validatePassword, validateUserId } from '../utils/validators.js';
+import { validateEmail, validatePassword } from '../utils/validators.js';
 import { checkExistingUser, checkRegisteredUser } from '../utils/dbHelpers.js';
+import { UserHistoryService } from './userHistoryService.js';
+import { UserAction, ActionStatus } from '../constants/userHistory.js';
 
 export class AdminService{
 
-    static async adminRegister({ name, email, password, role}){
+    static async adminRegister(admin, { name, email, password, role}){
 
         if(!name || !email || !password || !role){
             throw new AppError('Todos os campos são obrigatórios!', 400);
@@ -21,15 +23,35 @@ export class AdminService{
             const hashPassword = await bcrypt.hash(password, 10);
 
             const newUser = await prisma.tbuser.create({ data: { user_name: name, email, user_password: hashPassword } });
+            
+            await UserHistoryService.createUserHistory({
+                userId: admin.id,
+                action: UserAction.CREATE,
+                status: ActionStatus.SUCCESS,
+                details: `Usuário ${newUser.email} criado pelo admin ${admin.email}.`
+            });
+
             return newUser;
         }
         catch(err){
+            try{
+                await UserHistoryService.createUserHistory({
+                    userId: admin.id,
+                    action: UserAction.CREATE,
+                    status: ActionStatus.FAILED,
+                    details: `Admin ${admin.email} tentou cadastrar um usuário. Erro: ${err.message}`
+                });
+            }
+            catch(logError){
+                console.error('Erro ao registrar falha de criação de usuário!', logError);
+            }
+
             console.error('Falha ao cadastrar administrador!', err);
             throw err;
         }
     }
 
-    static async getAllUsers(){
+    static async getAllUsers(admin){
 
         try{
             const users = await prisma.tbuser.findMany();
@@ -52,20 +74,39 @@ export class AdminService{
                 throw new AppError('Nenhum usuário encontrado!', 404);
             }
 
+            await UserHistoryService.createUserHistory({
+                userId: admin.id,
+                action: UserAction.SEARCH,
+                status: ActionStatus.SUCCESS,
+                details: `Admin ${admin.email} buscou os usuários no sistema.`
+            });
+
             return sanitizedUsers;
         }
         catch(err){
+            try{
+                await UserHistoryService.createUserHistory({
+                    userId: admin.id,
+                    action: UserAction.SEARCH,
+                    status: ActionStatus.FAILED,
+                    details: `Admin ${admin.email} tentou buscar os usuários no sistema. Erro: ${err.message}`
+                });
+            }
+            catch(logError){
+                console.error('Erro ao registrar busca de usuários no sistema!', logError);
+            }
+
             console.error('Falha ao carregar usuários!', err);
             throw err;
         }
     }
 
-    static async getUserById(userId){
+    static async getUserByEmail(admin, userEmail){
 
-        validateUserId(userId);
+        validateEmail(userEmail);
 
         try{
-            const existingUser = await checkExistingUser(undefined, userId);
+            const existingUser = await checkExistingUser(userEmail);
 
             const { user_password: _, ...rest } = existingUser;
 
@@ -78,40 +119,63 @@ export class AdminService{
                 })
             };
 
+            await UserHistoryService.createUserHistory({
+                userId: admin.id,
+                action: UserAction.SEARCH,
+                status: ActionStatus.SUCCESS,
+                details: `Admin ${admin.email} buscou pelo usuários ${userEmail}.`
+            });
+
             return sanitizedUser;
         }
         catch(err){
+            try{
+                await UserHistoryService.createUserHistory({
+                    userId: admin.id,
+                    action: UserAction.SEARCH,
+                    status: ActionStatus.FAILED,
+                    details: `Admin ${admin.email} tentou buscar pelo email ${userEmail}. Erro: ${err.message}`
+                });
+            }
+            catch(logError){
+                console.error('Erro ao registrar falha de busca de usuário!', logError);
+            }
+
             console.error('Falha ao buscar usuário!', err);
             throw err;
         }
     }
 
-    static async adminUpdateUser(userId, { name, email, password, role, status }){;
+    static async adminUpdateUser(admin, userEmail, { name, email, password, role, status }){;
 
-        validateUserId(userId)
+        validateEmail(userEmail);
 
         if(!name && !email && !password && !role && !status){
             throw new AppError('Ao menos um campo deve ser informado!', 400);
         }
 
         try{
-            await checkExistingUser(userId);
+            await checkExistingUser(userEmail);
 
-            const data = {};
+            const updatedFields = {};
+            const changes = [];
             
             if(name){
-                data.user_name = name;
+                updatedFields.user_name = name;
+                changes.push('Nome');
             };
             
             if(email){
                 validateEmail(email);
-                data.email = email; 
+                updatedFields.email = email; 
+                changes.push('Email');
             };
             
             if(password){
                 validatePassword(password);
                 const hashPassword = await bcrypt.hash(password, 10);
-                data.user_password = hashPassword;
+                updatedFields.user_password = hashPassword;
+                changes.push('Senha');
             };
 
             if(role){
@@ -119,7 +183,8 @@ export class AdminService{
                 if(!validRoles.includes(role)) {
                     throw new AppError('Tipo de usuário inválido!', 400);
                 }
-                data.user_role = role;
+                updatedFields.user_role = role;
+                changes.push('Tipo de conta');
             }
 
             if(status){
@@ -127,29 +192,70 @@ export class AdminService{
                 if(!validStatus.includes(status)){
                     throw new AppError('Status de usuário inválido!', 400);
                 }
-                data.user_status = status;
+                updatedFields.user_status = status;
+                changes.push('Status')
             }
 
-            const updatedUser = await prisma.tbuser.update({ where: { id: userId }, data, });
+            const updatedUser = await prisma.tbuser.update({ where: { email: userEmail }, data: updatedFields, });
+
+            await UserHistoryService.createUserHistory({
+                userId: admin.id,
+                action: UserAction.UPDATE,
+                status: ActionStatus.SUCCESS,
+                details: `Admin ${admin.email} atualizou o(s) dado(s): ${changes.join(', ')} do usuário ${userEmail}.`
+            });
+
             return updatedUser;
         }
         catch(err){
+            try{
+                await UserHistoryService.createUserHistory({
+                    userId: admin.id,
+                    action: UserAction.UPDATE,
+                    status: ActionStatus.FAILED,
+                    details: `Admin ${admin.email} tentou atualizar os dados do usuário ${userEmail}. Erro: ${err.message}`
+                });
+            }
+            catch(logError){
+                console.error('Erro ao registrar falha na atualização de usuário!', logError);
+            }
+
             console.error('Falha ao atualizar dados do usuário!', err);
-            throw new Error(`Falha no serviço: ${err.message}`);
+            throw err;
         }
     }
 
-    static async adminDeleteUser(userId){
+    static async adminDeleteUser(admin, userEmail){
 
         try{
-            await checkExistingUser(userId);
+            await checkExistingUser(userEmail);
 
-            const deletedUser = await prisma.tbuser.delete({ where: { id: userId } });
+            const deletedUser = await prisma.tbuser.delete({ where: { email: userEmail } });
+
+            await UserHistoryService.createUserHistory({
+                userId: admin.id,
+                action: UserAction.CREATE,
+                status: ActionStatus.SUCCESS,
+                details: `Admin ${admin.email} deletou o usuário ${userEmail}.`
+            });
+
             return deletedUser;
         }
         catch(err){
+            try{
+                await UserHistoryService.createUserHistory({
+                    userId: admin.id,
+                    action: UserAction.DELETE,
+                    status: ActionStatus.FAILED,
+                    details: `Admin ${admin.email} tentou deletar o usuário ${userEmail}.`
+                });
+            }
+            catch(logError){
+                console.error('Erro ao registrar falha de exclusão de usuários!', logError);
+            }
+
             console.error('Falha ao deletar usuário!', err);
-            throw new Error(`Falha no serviço: ${err.message}`);
+            throw err;
         }
     }
 }
